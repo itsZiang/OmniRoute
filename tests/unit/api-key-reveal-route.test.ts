@@ -53,7 +53,23 @@ test("GET /api/keys stays masked even when reveal is enabled", async () => {
   assert.equal(body.keys[0].key, maskKey(created.key));
 });
 
+test("GET /api/keys defaults to reveal enabled when no override is set", async () => {
+  // ALLOW_API_KEY_REVEAL defaults to "true" so dashboards with 1-2 operators
+  // can copy existing keys any time without re-creating them. Operators who
+  // want the stricter "masked-only" posture can set ALLOW_API_KEY_REVEAL=false
+  // (env or DB override) to flip it back off.
+  const created = await apiKeysDb.createApiKey("Primary Key", MACHINE_ID);
+
+  const response = await listRoute.GET(new Request("http://localhost/api/keys"));
+  const body = (await response.json()) as any;
+
+  assert.equal(response.status, 200);
+  assert.equal(body.allowKeyReveal, true);
+  assert.equal(body.keys[0].key, maskKey(created.key));
+});
+
 test("GET /api/keys falls back to default pagination for invalid query params", async () => {
+  process.env.ALLOW_API_KEY_REVEAL = "false";
   await apiKeysDb.createApiKey("Alpha", MACHINE_ID);
   await apiKeysDb.createApiKey("Beta", MACHINE_ID);
 
@@ -99,6 +115,7 @@ test("GET /api/keys returns 500 when key loading fails unexpectedly", async () =
 });
 
 test("GET /api/keys/[id]/reveal rejects requests when reveal is disabled", async () => {
+  process.env.ALLOW_API_KEY_REVEAL = "false";
   const created = await apiKeysDb.createApiKey("Primary Key", MACHINE_ID);
   const request = new Request(`http://localhost/api/keys/${created.id}/reveal`);
 

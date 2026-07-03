@@ -364,6 +364,7 @@ test("GET /api/keys/[id] returns 404 for an unknown key and reveal is gated by t
     await makeManagementSessionRequest("http://localhost/api/keys/missing"),
     { params: Promise.resolve({ id: "missing" }) }
   );
+  process.env.ALLOW_API_KEY_REVEAL = "false";
   const revealDisabled = await revealRoute.GET(
     await makeManagementSessionRequest(`http://localhost/api/keys/${created.id}/reveal`),
     { params: Promise.resolve({ id: created.id }) }
