@@ -100,7 +100,7 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
       "Allow authenticated dashboard users to reveal stored API keys instead of only seeing masked values.",
     descriptionI18nKey: "featureFlagAllowApiKeyRevealDescription",
     category: "security",
-    defaultValue: "false",
+    defaultValue: "true",
     type: "boolean",
     requiresRestart: false,
     warningLevel: "danger",
