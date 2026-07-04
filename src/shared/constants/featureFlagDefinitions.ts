@@ -105,6 +105,18 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     requiresRestart: false,
     warningLevel: "danger",
   },
+  {
+    key: "ALLOW_KEYPOOL_AUTOREPLACE",
+    label: "Key Pool Auto-Replace",
+    description:
+      "Auto-replace a quota/credits-exhausted upstream API key connection with a fresh key from that provider's key pool. Defaults to true for small self-hosted instances.",
+    descriptionI18nKey: "featureFlagKeyPoolAutoReplaceDescription",
+    category: "runtime",
+    defaultValue: "true",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
+  },
   // ──────────────── Network (7) ────────────────
   {
     key: "ENABLE_TLS_FINGERPRINT",

@@ -84,6 +84,18 @@ export function isApiKeyRevealEnabledFlag(): boolean {
   }
 }
 
+export function isKeyPoolAutoReplaceEnabled(): boolean {
+  try {
+    return isFeatureFlagEnabled("ALLOW_KEYPOOL_AUTOREPLACE");
+  } catch (error) {
+    console.error(
+      "[featureFlags] Failed to resolve ALLOW_KEYPOOL_AUTOREPLACE, defaulting to disabled:",
+      error instanceof Error ? error.message : error
+    );
+    return false;
+  }
+}
+
 export function isModelCatalogNamesEnabled(): boolean {
   return isFeatureFlagEnabled("MODEL_CATALOG_INCLUDE_NAMES");
 }

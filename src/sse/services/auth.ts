@@ -31,8 +31,10 @@ import {
   hasPerModelQuota,
   getRuntimeProviderProfile,
   recordModelLockoutFailure,
+  isCreditsExhausted,
 } from "@omniroute/open-sse/services/accountFallback.ts";
 import { isLocalProvider } from "@omniroute/open-sse/config/providerRegistry.ts";
+import { autoReplaceFromPool } from "./keyPoolAutoReplace";
 import { COOLDOWN_MS, RateLimitReason } from "@omniroute/open-sse/config/constants.ts";
 import {
   preflightQuota,
@@ -72,6 +74,7 @@ interface ProviderConnectionView {
   provider: string;
   email: string | null;
   isActive: boolean;
+  authType: string | null;
   rateLimitedUntil: string | null;
   testStatus: string | null;
   apiKey: string | null;
@@ -170,6 +173,7 @@ function toProviderConnection(value: unknown): ProviderConnectionView {
     provider: toStringOrNull(row.provider) || "",
     email: toStringOrNull(row.email),
     isActive: row.isActive === true,
+    authType: toStringOrNull(row.authType),
     rateLimitedUntil: toStringOrNull(row.rateLimitedUntil),
     testStatus: toStringOrNull(row.testStatus),
     apiKey: toStringOrNull(row.apiKey),
@@ -2234,6 +2238,26 @@ export async function markAccountUnavailable(
 
     if (provider && status && errorMsg) {
       console.error(`❌ ${provider} [${status}]: ${errorMsg}`);
+    }
+
+    // ── Key Pool auto-replace ──────────────────────────────────────────
+    // When an `apikey`-type connection exhausts its quota/credits, fire-and-
+    // forget a pool replacement so the next request has a fresh key without
+    // the operator pasting one in. Reuses `checkFallbackError`'s already-
+    // resolved `terminalStatus` (set above) plus the shared pattern list
+    // `isCreditsExhausted` from accountFallback.ts — avoids maintaining a
+    // second diverging quota-pattern list. Only apikey connections are
+    // eligible (oauth/cookie keys aren't pool-replaceable).
+    if (provider && conn?.authType === "apikey") {
+      const isQuotaExhausted =
+        terminalStatus === "credits_exhausted" ||
+        status === 402 ||
+        isCreditsExhausted(errorText ?? "");
+      if (isQuotaExhausted) {
+        autoReplaceFromPool(provider, connectionId).catch(() => {
+          // fire-and-forget — log already in callee
+        });
+      }
     }
 
     return { shouldFallback: true, cooldownMs };

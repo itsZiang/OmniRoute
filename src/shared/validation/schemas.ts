@@ -5,6 +5,7 @@ export * from "./schemas/settings";
 export * from "./schemas/pricing";
 export * from "./schemas/proxy";
 export * from "./schemas/provider";
+export * from "./schemas/providerPool";
 export * from "./schemas/payloadRules";
 export * from "./schemas/routing";
 export * from "./schemas/apiV1";
