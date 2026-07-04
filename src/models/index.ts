@@ -26,4 +26,13 @@ export {
   isCloudEnabled,
   resolveProxyForProvider,
   getHiddenModelsByProvider,
+  // key_pool — per-provider reserve API key pool (auto-replace + manual pull/push)
+  getPoolKeys,
+  getPoolKeysPaged,
+  getPoolCount,
+  addKeysToPool,
+  removeKeyFromPool,
+  pullKeysFromPool,
+  createPoolConnections,
+  moveConnectionsToPool,
 } from "@/lib/localDb";

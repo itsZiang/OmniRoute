@@ -763,3 +763,19 @@ export type {
 // proxy_logs — export query (#3500 slice 4)
 // ---------------------------------------------------------------------------
 export { exportProxyLogsSince } from "./db/proxyLogs";
+
+// ---------------------------------------------------------------------------
+// key_pool — per-provider reserve API key pool. Reserve keys are promoted into
+// provider_connections on quota/credits-exhausted (auto-replace) or manual pull.
+// ---------------------------------------------------------------------------
+export {
+  getPoolKeys,
+  getPoolKeysPaged,
+  getPoolCount,
+  addKeysToPool,
+  removeKeyFromPool,
+  pullKeysFromPool,
+  createPoolConnections,
+  moveConnectionsToPool,
+} from "./db/keyPool";
+export type { PoolKey, PoolKeyInput, AddKeysResult } from "./db/keyPool";
