@@ -43,6 +43,7 @@ import ProviderPlaygroundPanel from "./components/ProviderPlaygroundPanel";
 import ProviderModelsSection from "./components/ProviderModelsSection";
 import CustomModelsSection from "./components/CustomModelsSection";
 import ConnectionsListPanel from "./components/ConnectionsListPanel";
+import KeyPoolPanel from "./components/KeyPoolPanel";
 import ConnectionsHeaderToolbar from "./components/ConnectionsHeaderToolbar";
 import ZedImportCard from "./components/ZedImportCard";
 import ProviderPageHeader from "./components/ProviderPageHeader";
@@ -611,6 +612,16 @@ export default function ProviderDetailPageClient() {
             />
           )}
         </Card>
+      )}
+      {/* 🔑 Key Pool — only for providers that can host API-key connections
+          (managed apikey providers + OpenAI/Anthropic-compatible nodes). Hidden
+          for no-auth and upstream-proxy providers, mirroring the connections block. */}
+      {!isUpstreamProxyProvider && !isFreeNoAuth && (
+        <KeyPoolPanel
+          providerId={providerId}
+          selectedConnectionIds={selectedIds}
+          onConnectionsMutated={fetchConnections}
+        />
       )}
       {isUpstreamProxyProvider && <UpstreamProxyCard t={t} />}
 
