@@ -198,13 +198,9 @@ export default function Sidebar({
 
   const resolveItem = (item: SidebarItemDefinition, hidden: Set<string>) => {
     if (hidden.has(item.id)) return null;
-    const subtitle = item.subtitleKey
-      ? getSidebarLabel(item.subtitleKey, item.subtitleFallback ?? "")
-      : item.subtitleFallback;
     return {
       ...item,
       label: getSidebarLabel(item.i18nKey, item.labelFallback ?? item.id),
-      subtitle: subtitle || undefined,
     };
   };
 
@@ -393,14 +389,7 @@ export default function Sidebar({
         <span className={iconClassName} style={getIconStyle(item.id)}>
           {item.icon}
         </span>
-        {!collapsed && (
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-medium">{item.label}</span>
-            {item.subtitle && (
-              <span className="truncate text-[10px] text-text-muted/60">{item.subtitle}</span>
-            )}
-          </div>
-        )}
+        {!collapsed && <span className="truncate text-sm font-medium">{item.label}</span>}
       </>
     );
     const sharedProps = {
