@@ -7,7 +7,7 @@
  *     co-update of `mode` when only `enabled` is provided (legacy sync logic).
  *  2. updateSkill ignores unknown columns (allowlist guard — injection-safe).
  *  3. exportAllSummaryRows returns seeded rows from key_value / combos /
- *     provider_connections / api_keys.
+ *     provider_connections / api_keys / key_pool.
  *  4. getTableNamesFromAdapter returns table names from an adapter.
  *  5. countImportedRows returns correct counts from the live DB.
  *
@@ -161,9 +161,7 @@ test("exportAllSummaryRows — returns provider_connections rows (no credentials
 
   const { providers } = backupMod.exportAllSummaryRows();
 
-  const found = (providers as Array<{ id: string; provider: string }>).find(
-    (p) => p.id === connId
-  );
+  const found = (providers as Array<{ id: string; provider: string }>).find((p) => p.id === connId);
   assert.ok(found, "providers must include seeded row");
   assert.equal(found?.provider, "openai");
   // Sensitive credential columns must NOT be exported — the query only selects
@@ -190,6 +188,27 @@ test("exportAllSummaryRows — returns api_keys rows (masked prefix only)", () =
   assert.ok(!("key" in (found as object)), "full key column must not be exported");
 });
 
+test("exportAllSummaryRows — returns key_pool rows (full key, no masking)", () => {
+  const db = core.getDbInstance();
+  const keyId = uniqueId("poolkey");
+  const fullKey = "sk-poolsecretvalue123456";
+  // key_pool schema: id, provider, name, key, data, created_at
+  db.prepare(
+    `INSERT INTO key_pool (id, provider, name, key, created_at)
+     VALUES (?, ?, ?, ?, datetime('now'))`
+  ).run(keyId, "openai", "export-test-pool-key", fullKey);
+
+  const { keyPool } = backupMod.exportAllSummaryRows();
+
+  const found = (keyPool as Array<{ id: string; key?: string }>).find((k) => k.id === keyId);
+  assert.ok(found, "keyPool must include seeded row");
+  assert.equal(
+    found?.key,
+    fullKey,
+    "full key must be exported (key pool stores user's own upstream keys)"
+  );
+});
+
 // ──────────────── getTableNamesFromAdapter ────────────────
 
 test("getTableNamesFromAdapter — returns table names from the live db adapter", () => {
@@ -205,6 +224,7 @@ test("getTableNamesFromAdapter — returns table names from the live db adapter"
   assert.ok(tables.includes("combos"), "combos table must be present");
   assert.ok(tables.includes("provider_connections"), "provider_connections must be present");
   assert.ok(tables.includes("api_keys"), "api_keys must be present");
+  assert.ok(tables.includes("key_pool"), "key_pool must be present");
 });
 
 // ──────────────── countImportedRows ────────────────
@@ -218,6 +238,7 @@ test("countImportedRows — returns correct non-negative counts", () => {
   assert.ok(typeof counts.nodeCount === "number" && counts.nodeCount >= 0);
   assert.ok(typeof counts.comboCount === "number" && counts.comboCount >= 0);
   assert.ok(typeof counts.keyCount === "number" && counts.keyCount >= 0);
+  assert.ok(typeof counts.poolKeyCount === "number" && counts.poolKeyCount >= 0);
 });
 
 // ──────────────── Teardown ────────────────

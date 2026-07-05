@@ -287,12 +287,7 @@ export function isAutoBackupDisabledBySetting(): boolean {
     // Apply precedence: last non-null wins (mirrors getUserDatabaseSettings — flat alias
     // first, then nested key). Default (no persisted value) → not disabled.
     let enabled: boolean | null = null;
-    for (const candidate of [
-      fromSettingsNested,
-      fromSettingsBackup,
-      fromDbFlat,
-      fromDbNested,
-    ]) {
+    for (const candidate of [fromSettingsNested, fromSettingsBackup, fromDbFlat, fromDbNested]) {
       if (candidate !== null) enabled = candidate;
     }
 
@@ -579,8 +574,12 @@ export async function restoreDbBackup(backupId: string) {
     (db.prepare("SELECT COUNT(*) as cnt FROM combos").get() as CountRow | undefined)?.cnt || 0;
   const keyCount =
     (db.prepare("SELECT COUNT(*) as cnt FROM api_keys").get() as CountRow | undefined)?.cnt || 0;
+  const poolKeyCount =
+    (db.prepare("SELECT COUNT(*) as cnt FROM key_pool").get() as CountRow | undefined)?.cnt || 0;
 
-  console.log(`[DB] Restored backup: ${backupId} (${connCount} connections)`);
+  console.log(
+    `[DB] Restored backup: ${backupId} (${connCount} connections, ${poolKeyCount} pool keys)`
+  );
 
   return {
     restored: true,
@@ -589,6 +588,7 @@ export async function restoreDbBackup(backupId: string) {
     nodeCount,
     comboCount,
     apiKeyCount: keyCount,
+    poolKeyCount,
   };
 }
 
@@ -599,6 +599,7 @@ export interface ExportAllRows {
   combos: unknown[];
   providers: unknown[];
   apiKeys: unknown[];
+  keyPool: unknown[];
 }
 
 /**
@@ -610,6 +611,8 @@ export interface ExportAllRows {
  *              (id, provider, name, auth_type, is_active, email, created_at only)
  * - apiKeys:   api_keys rows with masked prefix
  *              (id, name, first 8 chars of key, machine_id, created_at)
+ * - keyPool:   key_pool rows with full key (plaintext, same as stored)
+ *              (id, provider, name, key, created_at)
  *
  * Each category is wrapped in a try/catch so a missing table never aborts the
  * entire export — consistent with the original inline behaviour.
@@ -663,7 +666,14 @@ export function exportAllSummaryRows(): ExportAllRows {
     // api_keys table might not exist
   }
 
-  return { settings, combos, providers, apiKeys };
+  const keyPool: unknown[] = [];
+  try {
+    keyPool.push(...db.prepare("SELECT id, provider, name, key, created_at FROM key_pool").all());
+  } catch {
+    // key_pool table might not exist
+  }
+
+  return { settings, combos, providers, apiKeys, keyPool };
 }
 
 // ──────────────── Import validation helpers (for /api/db-backups/import) ────────────────
@@ -696,6 +706,7 @@ export function countImportedRows(): {
   nodeCount: number;
   comboCount: number;
   keyCount: number;
+  poolKeyCount: number;
 } {
   const db = getDbInstance();
   const connCount =
@@ -704,5 +715,6 @@ export function countImportedRows(): {
     (db.prepare("SELECT COUNT(*) as cnt FROM provider_nodes").get() as any)?.cnt || 0;
   const comboCount = (db.prepare("SELECT COUNT(*) as cnt FROM combos").get() as any)?.cnt || 0;
   const keyCount = (db.prepare("SELECT COUNT(*) as cnt FROM api_keys").get() as any)?.cnt || 0;
-  return { connCount, nodeCount, comboCount, keyCount };
+  const poolKeyCount = (db.prepare("SELECT COUNT(*) as cnt FROM key_pool").get() as any)?.cnt || 0;
+  return { connCount, nodeCount, comboCount, keyCount, poolKeyCount };
 }

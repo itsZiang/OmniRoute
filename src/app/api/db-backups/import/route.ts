@@ -29,9 +29,7 @@ const MAX_UPLOAD_MB_CEILING = 4096;
  * via `OMNIROUTE_DB_IMPORT_MAX_MB`. Invalid / out-of-range values fall back to the 100 MB
  * default and are clamped to a 4 GB ceiling.
  */
-export function resolveMaxUploadSizeBytes(
-  env: NodeJS.ProcessEnv = process.env
-): number {
+export function resolveMaxUploadSizeBytes(env: NodeJS.ProcessEnv = process.env): number {
   const raw = env.OMNIROUTE_DB_IMPORT_MAX_MB;
   const parsed = raw === undefined ? NaN : Number(raw);
   const mb =
@@ -185,10 +183,10 @@ export async function POST(request: Request) {
 
     // Reopen and verify
     getDbInstance();
-    const { connCount, nodeCount, comboCount, keyCount } = countImportedRows();
+    const { connCount, nodeCount, comboCount, keyCount, poolKeyCount } = countImportedRows();
 
     console.log(
-      `[DB] Imported database from upload: ${connCount} connections, ${nodeCount} nodes, ${comboCount} combos, ${keyCount} API keys`
+      `[DB] Imported database from upload: ${connCount} connections, ${nodeCount} nodes, ${comboCount} combos, ${keyCount} API keys, ${poolKeyCount} pool keys`
     );
 
     // The DB was replaced wholesale — re-hydrate the in-memory Global System Prompt so it
@@ -209,6 +207,7 @@ export async function POST(request: Request) {
       nodeCount,
       comboCount,
       apiKeyCount: keyCount,
+      poolKeyCount,
     });
   } catch (error) {
     console.error("[API] Error importing database:", error);

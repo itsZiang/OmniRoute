@@ -39,12 +39,13 @@ export async function GET(request: NextRequest) {
       const dbBackupPath = path.join(tempDir, "storage.sqlite");
       await db.backup(dbBackupPath);
 
-      // 2–5. Export settings, combos, provider connections, API keys (via db module)
-      const { settings, combos, providers, apiKeys } = exportAllSummaryRows();
+      // 2–6. Export settings, combos, provider connections, API keys, key pool (via db module)
+      const { settings, combos, providers, apiKeys, keyPool } = exportAllSummaryRows();
       fs.writeFileSync(path.join(tempDir, "settings.json"), JSON.stringify(settings, null, 2));
       fs.writeFileSync(path.join(tempDir, "combos.json"), JSON.stringify(combos, null, 2));
       fs.writeFileSync(path.join(tempDir, "providers.json"), JSON.stringify(providers, null, 2));
       fs.writeFileSync(path.join(tempDir, "api-keys.json"), JSON.stringify(apiKeys, null, 2));
+      fs.writeFileSync(path.join(tempDir, "key-pool.json"), JSON.stringify(keyPool, null, 2));
 
       // 6. Export call log artifacts directory
       if (CALL_LOGS_DIR && fs.existsSync(CALL_LOGS_DIR)) {
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
           "combos.json - Combo configurations",
           "providers.json - Provider connections (no credentials)",
           "api-keys.json - API key metadata (masked)",
+          "key-pool.json - Key pool entries (full key, plaintext)",
           "call_logs/ - Detailed call log artifacts",
         ],
       };
