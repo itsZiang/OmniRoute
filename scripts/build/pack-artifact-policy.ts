@@ -91,6 +91,7 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   // must be allowed here. Each script is self-documenting via --help.
   "bin/_ops-common.sh",
   "bin/cold-start-bench.sh",
+  "bin/publish-ltgiang.sh",
   "bin/restore-data.sh",
   "bin/restore-policies.sh",
   "bin/rollback.sh",

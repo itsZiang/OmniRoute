@@ -89,6 +89,18 @@ test("setupPolyfill.ts is allowed in the tarball (bin/omniroute.mjs imports it a
   assert.deepEqual(unexpectedPaths, []);
 });
 
+test("bin/publish-ltgiang.sh is allowed in the tarball root (operator tooling for @ltgiang/omniroute fork)", () => {
+  // Regression guard: the script was added in 2142f45ee but the allowlist
+  // was missed → `npm run check:pack-artifact` flagged it as unexpected.
+  // Required so the @ltgiang/omniroute dist-tag publish path can ship.
+  const unexpectedPaths = findUnexpectedArtifactPaths(["bin/publish-ltgiang.sh"], {
+    exactPaths: PACK_ARTIFACT_ALLOWED_EXACT_PATHS,
+    prefixPaths: PACK_ARTIFACT_ALLOWED_PATH_PREFIXES,
+  });
+
+  assert.deepEqual(unexpectedPaths, []);
+});
+
 test("findMissingArtifactPaths flags missing root runtime files in the tarball", () => {
   const missingPaths = findMissingArtifactPaths(
     [
