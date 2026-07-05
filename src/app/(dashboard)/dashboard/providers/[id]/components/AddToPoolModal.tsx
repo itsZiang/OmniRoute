@@ -19,7 +19,8 @@ interface AddToPoolModalProps {
 }
 
 export default function AddToPoolModal({ open, onClose, onSubmit, disabled }: AddToPoolModalProps) {
-  const t = useTranslations();
+  const t = useTranslations("providers");
+  const tc = useTranslations("common");
   const [lines, setLines] = useState("");
 
   if (!open) return null;
@@ -64,7 +65,7 @@ export default function AddToPoolModal({ open, onClose, onSubmit, disabled }: Ad
         />
         <div className="flex justify-end gap-2 mt-4">
           <Button color="ghost" onClick={handleClose} disabled={disabled}>
-            {t("cancel") || "Cancel"}
+            {tc("cancel") || "Cancel"}
           </Button>
           <Button onClick={handleSubmit} disabled={disabled || !lines.trim()}>
             {t("keyPoolAdd") || "Add to pool"}

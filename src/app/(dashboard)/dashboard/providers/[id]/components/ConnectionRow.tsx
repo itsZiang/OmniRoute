@@ -307,6 +307,18 @@ function getStatusPresentation(
     };
   }
 
+  // No error type inferred → connection is healthy (e.g. new connections that
+  // haven't been tested yet — treat as active, not error).
+  if (!errorType) {
+    return {
+      statusVariant: "success",
+      statusLabel: t("statusConnected"),
+      errorType: null,
+      errorBadge: null,
+      errorTextClass: "text-text-muted",
+    };
+  }
+
   const fallbackStatusMap: Record<string, string> = {
     unavailable: t("statusUnavailable"),
     failed: t("statusFailed"),

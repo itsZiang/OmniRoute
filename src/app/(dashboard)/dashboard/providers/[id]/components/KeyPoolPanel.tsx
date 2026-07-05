@@ -13,7 +13,7 @@
  * panel reads the current pool state, mutations happen in `markAccountUnavailable`.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Card, Button } from "@/shared/components";
 import { useKeyPool } from "../hooks/useKeyPool";
@@ -25,32 +25,65 @@ interface KeyPoolPanelProps {
   selectedConnectionIds?: Set<string>;
   /** Callback to refresh connections after pull/push (so the parent table re-renders). */
   onConnectionsMutated?: () => void;
+  /** Callback to clear the connection selection in the parent table. */
+  onClearSelection?: () => void;
 }
 
 export default function KeyPoolPanel({
   providerId,
   selectedConnectionIds,
   onConnectionsMutated,
+  onClearSelection,
 }: KeyPoolPanelProps) {
-  const t = useTranslations();
+  const t = useTranslations("providers");
   const pool = useKeyPool(providerId);
   const [pullCount, setPullCount] = useState(30);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 5;
 
   const selectedIds = useMemo(
     () => (selectedConnectionIds ? Array.from(selectedConnectionIds) : []),
     [selectedConnectionIds]
   );
 
+  const totalPages = Math.max(1, Math.ceil(pool.count / PAGE_SIZE));
+
+  // Re-fetch the current page whenever it changes.
+  useEffect(() => {
+    pool.fetchKeys(page, PAGE_SIZE);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
   const handlePull = async () => {
     const res = await pool.pull(pullCount);
-    if (res && (res.created > 0 || res.pulled > 0)) onConnectionsMutated?.();
+    if (res && (res.created > 0 || res.pulled > 0)) {
+      onConnectionsMutated?.();
+      setPage(1);
+    }
   };
 
   const handlePushSelected = async () => {
     if (selectedIds.length === 0) return;
     const res = await pool.push(selectedIds);
-    if (res && res.moved > 0) onConnectionsMutated?.();
+    if (res && res.moved > 0) {
+      onConnectionsMutated?.();
+      onClearSelection?.();
+      setPage(1);
+    }
+  };
+
+  const handleRemove = async (keyId: string) => {
+    await pool.removeKey(keyId);
+    setPage(1);
+  };
+
+  const handleAdd = async (lines: string) => {
+    const res = await pool.addKeys(lines);
+    if (res) {
+      setShowAddModal(false);
+      setPage(1);
+    }
   };
 
   return (
@@ -96,7 +129,7 @@ export default function KeyPoolPanel({
         </Button>
         <Button
           color="ghost"
-          onClick={() => pool.fetchKeys()}
+          onClick={() => pool.fetchKeys(page, PAGE_SIZE)}
           disabled={!!pool.busy}
           title={t("keyPoolRefresh") || "Refresh"}
         >
@@ -131,7 +164,7 @@ export default function KeyPoolPanel({
             ) : (
               pool.keys.map((k, i) => (
                 <tr key={k.id} className="border-t">
-                  <td className="px-3 py-2 text-gray-400">{i + 1}</td>
+                  <td className="px-3 py-2 text-gray-400">{(page - 1) * PAGE_SIZE + i + 1}</td>
                   <td className="px-3 py-2">
                     {k.name || <span className="text-gray-400">—</span>}
                   </td>
@@ -140,11 +173,7 @@ export default function KeyPoolPanel({
                     {k.createdAt ? new Date(k.createdAt).toLocaleString() : ""}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <Button
-                      color="ghost"
-                      onClick={() => pool.removeKey(k.id)}
-                      disabled={!!pool.busy}
-                    >
+                    <Button color="ghost" onClick={() => handleRemove(k.id)} disabled={!!pool.busy}>
                       ✕
                     </Button>
                   </td>
@@ -154,6 +183,34 @@ export default function KeyPoolPanel({
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-3">
+          <Button
+            color="outline"
+            size="sm"
+            onClick={() => {
+              setPage((p) => Math.max(1, p - 1));
+            }}
+            disabled={page <= 1}
+          >
+            ←
+          </Button>
+          <span className="text-sm text-gray-500">
+            {page} / {totalPages}
+          </span>
+          <Button
+            color="outline"
+            size="sm"
+            onClick={() => {
+              setPage((p) => Math.min(totalPages, p + 1));
+            }}
+            disabled={page >= totalPages}
+          >
+            →
+          </Button>
+        </div>
+      )}
 
       {!pool.reveal && pool.count > 0 && (
         <p className="mt-3 text-xs text-gray-500">
@@ -165,10 +222,7 @@ export default function KeyPoolPanel({
       <AddToPoolModal
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSubmit={async (lines) => {
-          const res = await pool.addKeys(lines);
-          if (res) setShowAddModal(false);
-        }}
+        onSubmit={handleAdd}
         disabled={!!pool.busy}
       />
     </Card>
