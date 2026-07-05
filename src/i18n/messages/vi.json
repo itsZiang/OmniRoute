@@ -4431,7 +4431,20 @@
     "webNoAuthGuideBody": "{provider} không cần khóa API hoặc cookie. Lưu kết nối để sử dụng điểm cuối web miễn phí của nó.",
     "webSessionCredentialValidationFailed": "Xác thực thông tin xác thực phiên không thành công. Đăng nhập lại, sao chép thông tin xác thực mới và thử lại.",
     "checkCookie": "Kiểm tra cookie",
-    "checkWebToken": "Kiểm tra mã thông báo"
+    "checkWebToken": "Kiểm tra mã thông báo",
+    "roundRobinLabel": "Round-Robin",
+    "roundRobinTooltip": "Xoay vòng qua các kết nối khóa API, ngay cả khi khóa hiện tại đang hoạt động. Đặt số lượng dính để mỗi khóa phục vụ N yêu cầu liên tiếp trước khi xoay.",
+    "roundRobinAria": "Bật round-robin cho nhà cung cấp",
+    "roundRobinEnable": "Bật round-robin cho nhà cung cấp này",
+    "roundRobinDisable": "Tắt round-robin cho nhà cung cấp này",
+    "roundRobinEnabled": "Đã bật round-robin",
+    "roundRobinDisabled": "Đã tắt round-robin",
+    "stickyCountLabel": "Dính",
+    "stickyCountAria": "Số lượng yêu cầu dính",
+    "stickyCountTooltip": "Số lượng yêu cầu liên tiếp mà mỗi khóa phục vụ trước khi xoay sang khóa tiếp theo",
+    "stickyCountUpdated": "Đã đặt số lượng dính thành {count}",
+    "failedUpdateRoundRobin": "Không thể cập nhật cài đặt round-robin",
+    "failedUpdateStickyCount": "Không thể cập nhật số lượng dính"
   },
   "settings": {
     "title": "Cài đặt",

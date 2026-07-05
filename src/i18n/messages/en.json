@@ -4854,7 +4854,20 @@
     "kimiWebLabel": "Kimi Web",
     "kimiWebDesc": "Moonshot AI consumer chat via www.kimi.com (international, Connect-RPC API)",
     "doubaoWebLabel": "Doubao Web",
-    "doubaoWebDesc": "ByteDance AI chat via doubao.com"
+    "doubaoWebDesc": "ByteDance AI chat via doubao.com",
+    "roundRobinLabel": "Round-Robin",
+    "roundRobinTooltip": "Cycle through API key connections, even when the current key works. Set a sticky count to keep each key serving N consecutive requests before rotating.",
+    "roundRobinAria": "Enable per-provider round-robin",
+    "roundRobinEnable": "Enable round-robin for this provider",
+    "roundRobinDisable": "Disable round-robin for this provider",
+    "roundRobinEnabled": "Round-robin enabled",
+    "roundRobinDisabled": "Round-robin disabled",
+    "stickyCountLabel": "Sticky",
+    "stickyCountAria": "Sticky request count",
+    "stickyCountTooltip": "Number of consecutive requests each key serves before rotating to the next one",
+    "stickyCountUpdated": "Sticky count set to {count}",
+    "failedUpdateRoundRobin": "Failed to update round-robin setting",
+    "failedUpdateStickyCount": "Failed to update sticky count"
   },
   "settings": {
     "title": "Settings",

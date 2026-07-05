@@ -160,6 +160,12 @@ export default function ProviderDetailPageClient() {
     savingClaudeRoutingPreference,
     loadClaudeRoutingSettings,
     handleToggleClaudeRoutingPreference,
+    rrEnabled,
+    rrStickyCount,
+    rrSettingsLoaded,
+    savingRR,
+    handleToggleRoundRobin,
+    handleChangeStickyCount,
   } = useProviderSettings(providerId);
 
   const {
@@ -514,6 +520,12 @@ export default function ProviderDetailPageClient() {
             savingCodexGlobalServiceMode={savingCodexGlobalServiceMode}
             handleChangeCodexGlobalServiceMode={handleChangeCodexGlobalServiceMode}
             loadCodexSettings={loadCodexSettings}
+            rrEnabled={rrEnabled}
+            rrStickyCount={rrStickyCount}
+            rrSettingsLoaded={rrSettingsLoaded}
+            savingRR={savingRR}
+            handleToggleRoundRobin={handleToggleRoundRobin}
+            handleChangeStickyCount={handleChangeStickyCount}
             onSetProxyTarget={setProxyTarget}
             handleDistributeProxies={handleDistributeProxies}
             handleBatchTestAll={handleBatchTestAll}

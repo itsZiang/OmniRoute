@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Button, DistributeProxiesButton, Toggle } from "@/shared/components";
 import { providerText, type ProviderMessageTranslator } from "../providerPageHelpers";
 import type { CodexGlobalServiceMode } from "@/lib/providers/codexFastTier";
@@ -30,6 +31,13 @@ type ConnectionsHeaderToolbarProps = {
   savingCodexGlobalServiceMode: boolean;
   handleChangeCodexGlobalServiceMode: (mode: any) => void;
   loadCodexSettings: () => Promise<void>;
+  // Round-robin (per-provider)
+  rrEnabled: boolean;
+  rrStickyCount: number;
+  rrSettingsLoaded: boolean;
+  savingRR: boolean;
+  handleToggleRoundRobin: (enabled: boolean) => void;
+  handleChangeStickyCount: (count: number) => void;
   // Modal triggers
   onSetProxyTarget: (target: { level: string; id: string; label: string }) => void;
   handleDistributeProxies: () => void;
@@ -74,6 +82,12 @@ export default function ConnectionsHeaderToolbar({
   savingCodexGlobalServiceMode,
   handleChangeCodexGlobalServiceMode,
   loadCodexSettings,
+  rrEnabled,
+  rrStickyCount,
+  rrSettingsLoaded,
+  savingRR,
+  handleToggleRoundRobin,
+  handleChangeStickyCount,
   onSetProxyTarget,
   handleDistributeProxies,
   handleBatchTestAll,
@@ -190,6 +204,49 @@ export default function ConnectionsHeaderToolbar({
             ) : null}
           </div>
         )}
+        {/* Round-Robin toggle — for ALL providers with connections */}
+        <div
+          className="inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 px-2 py-1 text-xs font-medium text-text-muted"
+          title={providerText(
+            t,
+            "roundRobinTooltip",
+            "Cycle through API key connections, even when the current key works. Set a sticky count to keep each key serving N consecutive requests before rotating."
+          )}
+        >
+          <span className="material-symbols-outlined text-[14px] text-blue-500">cycle</span>
+          <span>{providerText(t, "roundRobinLabel", "Round-Robin")}</span>
+          <Toggle
+            size="sm"
+            checked={rrEnabled}
+            onChange={handleToggleRoundRobin}
+            disabled={savingRR || !rrSettingsLoaded}
+            ariaLabel={providerText(t, "roundRobinAria", "Enable per-provider round-robin")}
+            title={
+              rrEnabled
+                ? providerText(t, "roundRobinDisable", "Disable round-robin for this provider")
+                : providerText(t, "roundRobinEnable", "Enable round-robin for this provider")
+            }
+          />
+          <span className="text-[11px] text-text-muted/70">
+            {rrEnabled
+              ? providerText(t, "toggleOnShort", "On")
+              : providerText(t, "toggleOffShort", "Off")}
+          </span>
+          {rrEnabled && (
+            <StickyCountInput
+              value={rrStickyCount}
+              disabled={savingRR}
+              onCommit={handleChangeStickyCount}
+              label={providerText(t, "stickyCountLabel", "Sticky")}
+              ariaLabel={providerText(t, "stickyCountAria", "Sticky request count")}
+              title={providerText(
+                t,
+                "stickyCountTooltip",
+                "Number of consecutive requests each key serves before rotating to the next one"
+              )}
+            />
+          )}
+        </div>
         {/* Provider-level proxy indicator/button */}
         <button
           onClick={() =>
@@ -350,5 +407,129 @@ export default function ConnectionsHeaderToolbar({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * StickyCountInput — number input that commits the new value to the server
+ * after a short debounce, on blur, or on Enter. The debounce covers the
+ * browser spinner buttons (↑/↓) and arrow keys, which update the value but
+ * do NOT fire `onBlur` while focus stays on the input. Without the debounce
+ * the user could spin the value up or down and see the displayed number
+ * change yet never see the "Sticky count set to N" toast.
+ */
+const COMMIT_DEBOUNCE_MS = 400;
+
+function StickyCountInput(props: {
+  value: number;
+  disabled: boolean;
+  onCommit: (next: number) => void;
+  label: string;
+  ariaLabel: string;
+  title: string;
+}) {
+  const { value, disabled, onCommit, label, ariaLabel, title } = props;
+  const [draft, setDraft] = useState<string>(String(value));
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCommittedRef = useRef<number>(value);
+  const lastSyncedValueRef = useRef<number>(value);
+
+  // Sync the local draft when the server-confirmed value changes (e.g. after
+  // a successful PUT or when the parent re-loads settings). Guard with a ref
+  // so we only update when the prop actually moves — avoids the controlled
+  // input "flicker" on every parent re-render.
+  useEffect(() => {
+    if (value === lastSyncedValueRef.current) return;
+    lastSyncedValueRef.current = value;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraft(String(value));
+    lastCommittedRef.current = value;
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+  }, [value]);
+
+  // Cancel any pending debounce when the component unmounts so a stray timer
+  // can't fire `onCommit` after teardown.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  const commit = (raw: string) => {
+    // Cancel any pending debounced commit — this one is authoritative.
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    const next = Number(raw);
+    if (Number.isFinite(next) && next >= 1 && next <= 1000 && next !== lastCommittedRef.current) {
+      lastCommittedRef.current = next;
+      onCommit(next);
+    } else {
+      // Snap back to the last server-confirmed value.
+      setDraft(String(lastCommittedRef.current));
+    }
+  };
+
+  const scheduleCommit = (raw: string) => {
+    const next = Number(raw);
+    if (!Number.isFinite(next) || next < 1 || next > 1000) return;
+    if (next === lastCommittedRef.current) return;
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      // Re-read the input value at fire time, in case the user kept typing.
+      commit(String(next));
+    }, COMMIT_DEBOUNCE_MS);
+  };
+
+  return (
+    <>
+      <span className="text-text-muted/30 select-none">|</span>
+      <span className="material-symbols-outlined text-[14px] text-blue-500">repeat</span>
+      <span>{label}</span>
+      <input
+        type="number"
+        min={1}
+        max={1000}
+        value={draft}
+        disabled={disabled}
+        onChange={(event) => {
+          // Update the local draft immediately so the user sees their typing.
+          const raw = event.target.value;
+          setDraft(raw);
+          // Schedule a debounced commit so spinner clicks and arrow keys
+          // (which don't fire onBlur) still get persisted.
+          scheduleCommit(raw);
+        }}
+        onBlur={(event) => commit(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit((event.target as HTMLInputElement).value);
+            (event.target as HTMLInputElement).blur();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            if (debounceRef.current !== null) {
+              clearTimeout(debounceRef.current);
+              debounceRef.current = null;
+            }
+            setDraft(String(value));
+            lastCommittedRef.current = value;
+            (event.target as HTMLInputElement).blur();
+          }
+        }}
+        className="w-14 rounded border border-border bg-bg px-1.5 py-0.5 text-center text-xs text-text-main outline-none transition-colors focus:border-primary disabled:opacity-60"
+        aria-label={ariaLabel}
+        title={title}
+      />
+    </>
   );
 }

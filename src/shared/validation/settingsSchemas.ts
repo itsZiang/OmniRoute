@@ -177,6 +177,15 @@ export const updateSettingsSchema = z.object({
   fallbackStrategy: z.enum(ACCOUNT_FALLBACK_STRATEGY_VALUES).optional(),
   wildcardAliases: z.array(z.object({ pattern: z.string(), target: z.string() })).optional(),
   stickyRoundRobinLimit: z.number().int().min(0).max(1000).optional(),
+  providerRoundRobinOverrides: z
+    .record(
+      z.string().max(100),
+      z.object({
+        enabled: z.boolean(),
+        stickyCount: z.number().int().min(1).max(1000),
+      })
+    )
+    .optional(),
   requestRetry: z.number().int().min(0).max(10).optional(),
   maxRetryIntervalSec: z.number().int().min(0).max(300).optional(),
   maxBodySizeMb: z

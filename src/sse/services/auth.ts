@@ -1558,7 +1558,23 @@ export async function getProviderCredentials(
     const orderedConnections = withQuota;
 
     const settings = await getSettings();
-    const strategy = settings.fallbackStrategy || "fill-first";
+    let strategy = settings.fallbackStrategy || "fill-first";
+
+    // Per-provider round-robin override: if this provider has RR enabled in its
+    // override config, promote the strategy to "round-robin" regardless of the
+    // global fallbackStrategy. The per-provider sticky count is used in the RR block.
+    const providerRRConfigs = (settings.providerRoundRobinOverrides || {}) as Record<
+      string,
+      { enabled?: boolean; stickyCount?: number }
+    >;
+    const providerRR = providerRRConfigs[resolvedId];
+    if (
+      providerRR?.enabled &&
+      typeof providerRR.stickyCount === "number" &&
+      providerRR.stickyCount > 0
+    ) {
+      strategy = "round-robin";
+    }
     const sessionAffinityTtlMs =
       provider === "codex"
         ? Number.isFinite(Number(options.sessionAffinityTtlMs)) &&
@@ -1589,7 +1605,12 @@ export async function getProviderCredentials(
     if (connection) {
       // Session affinity selected a connection before global sticky routing.
     } else if (strategy === "round-robin") {
-      const stickyLimit = toNumber((settings as Record<string, unknown>).stickyRoundRobinLimit, 3);
+      const stickyLimit =
+        providerRR?.enabled &&
+        typeof providerRR.stickyCount === "number" &&
+        providerRR.stickyCount > 0
+          ? providerRR.stickyCount
+          : toNumber((settings as Record<string, unknown>).stickyRoundRobinLimit, 3);
 
       // If excluding account(s) (fallback scenario), skip sticky logic and go straight to LRU.
       // This prevents same-model retries from getting stuck on a failed account.

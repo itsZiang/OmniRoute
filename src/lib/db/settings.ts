@@ -96,6 +96,7 @@ export async function getSettings() {
     tailscaleEnabled: false,
     tailscaleUrl: "",
     stickyRoundRobinLimit: 3,
+    providerRoundRobinOverrides: {} as Record<string, { enabled: boolean; stickyCount: number }>,
     requestRetry: 3,
     maxRetryIntervalSec: 30,
     antigravitySignatureCacheMode: "enabled",
