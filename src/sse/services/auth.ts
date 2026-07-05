@@ -67,6 +67,70 @@ import { resolveAccountProxiesFromRegistry } from "./noAuthProxyResolution";
 import * as log from "../utils/logger";
 import { fisherYatesShuffle, getNextFromDeckSync } from "@/shared/utils/shuffleDeck";
 
+// ─── Cloudflare AI daily quota ──────────────────────────────────────────
+// Cloudflare Workers AI returns this literal string when the daily free quota
+// (10K Neurons/day) is exhausted. The quota resets at 00:00 UTC, so we
+// disable the connection and re-enable it lazily at 00:10 UTC the next day
+// (10-min buffer to let Cloudflare's own reset propagate).
+
+export const __CLOUDFLARE_DAILY_QUOTA_PATTERN = "used up your daily free allocation";
+
+/**
+ * Get the next 00:10 UTC timestamp for re-enabling Cloudflare connections.
+ * If current UTC time is past 00:10, returns 00:10 UTC of the next day.
+ */
+export function __getNextCloudflareReEnableTime(): string {
+  const now = new Date();
+  const reEnable = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 10, 0, 0)
+  );
+  if (reEnable.getTime() <= now.getTime()) {
+    reEnable.setUTCDate(reEnable.getUTCDate() + 1);
+  }
+  return reEnable.toISOString();
+}
+
+/**
+ * Re-enable Cloudflare connections that were disabled due to daily quota
+ * exhaustion and have passed their re-enable time (00:10 UTC).
+ *
+ * Called lazily from getProviderCredentials() — no cron/scheduler needed.
+ */
+export async function __reEnableCloudflareConnections(): Promise<void> {
+  try {
+    const allConnections = await getProviderConnections({ provider: "cloudflare-ai" });
+    const now = new Date().toISOString();
+    const toReEnable = allConnections.filter((c: Record<string, unknown>) => {
+      const psd = asRecord(c.providerSpecificData);
+      return (
+        psd.cloudflareQuotaDisabled === true &&
+        typeof psd.cloudflareReEnableAt === "string" &&
+        psd.cloudflareReEnableAt <= now
+      );
+    });
+
+    if (toReEnable.length === 0) return;
+
+    for (const conn of toReEnable) {
+      const psd = { ...asRecord(conn.providerSpecificData) };
+      delete psd.cloudflareQuotaDisabled;
+      delete psd.cloudflareReEnableAt;
+      await updateProviderConnection(conn.id as string, {
+        isActive: true,
+        providerSpecificData: psd as Record<string, unknown>,
+      });
+      const connName =
+        (conn.displayName as string) ||
+        (conn.name as string) ||
+        (conn.email as string) ||
+        String(conn.id).slice(0, 8);
+      log.info("AUTH", `[CLOUDFLARE] Re-enabled ${connName} — daily quota cooldown expired`);
+    }
+  } catch (err) {
+    log.warn("AUTH", `[CLOUDFLARE] re-enable check failed: ${err}`);
+  }
+}
+
 type JsonRecord = Record<string, unknown>;
 
 interface ProviderConnectionView {
@@ -1095,6 +1159,12 @@ export async function getProviderCredentials(
       excludeConnectionId,
       options.excludeConnectionIds
     );
+
+    // Lazy re-enable Cloudflare connections that were disabled due to daily
+    // quota exhaustion (Cloudflare Workers AI free tier resets at 00:00 UTC).
+    if (resolvedId === "cloudflare-ai") {
+      await __reEnableCloudflareConnections();
+    }
 
     // Fix #922: Check for aliases (nvidia/nvidia_nim) to ensure credentials are found
     const providersToSearch = await getProviderSearchPool(provider);
@@ -2238,6 +2308,43 @@ export async function markAccountUnavailable(
 
     if (provider && status && errorMsg) {
       console.error(`❌ ${provider} [${status}]: ${errorMsg}`);
+    }
+
+    // ── Cloudflare daily quota ─────────────────────────────────────────
+    // Cloudflare Workers AI has a per-day free quota (10K Neurons). When
+    // exhausted, disable the entire connection until 00:10 UTC the next day
+    // (the quota resets at midnight UTC; the 10-min buffer avoids races).
+    // This is per-account, NOT per-key — so it must run BEFORE the key pool
+    // auto-replace block below (replacing the key wouldn't help).
+    if (
+      provider === "cloudflare-ai" &&
+      typeof errorText === "string" &&
+      errorText.toLowerCase().includes(__CLOUDFLARE_DAILY_QUOTA_PATTERN)
+    ) {
+      const reEnableAt = __getNextCloudflareReEnableTime();
+      const currentPsd = asRecord(conn?.providerSpecificData);
+      const psd = {
+        ...currentPsd,
+        cloudflareQuotaDisabled: true,
+        cloudflareReEnableAt: reEnableAt,
+      };
+      await updateProviderConnection(connectionId, {
+        isActive: false,
+        providerSpecificData: psd,
+        testStatus: "unavailable",
+        lastError: errorMsg,
+        errorCode: status,
+        lastErrorAt: new Date().toISOString(),
+      });
+      const connName = conn?.email || connectionId.slice(0, 8);
+      log.warn(
+        "AUTH",
+        `[CLOUDFLARE] ${connName} disabled — daily quota exhausted, re-enable at ${reEnableAt}`
+      );
+      console.error(
+        `❌ cloudflare-ai [${status}]: Daily quota exhausted — disabled until ${reEnableAt}`
+      );
+      return { shouldFallback: true, cooldownMs: 0 };
     }
 
     // ── Key Pool auto-replace ──────────────────────────────────────────
