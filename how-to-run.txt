@@ -1,0 +1,15 @@
+```
+mkdir -p ~/.omniroute/logs   # lần đầu thôi
+nohup omniroute serve --log --max-restarts 5 \
+  > ~/.omniroute/logs/omniroute.log 2>&1 &
+disown
+```
+
+## Quản lý (dùng bất cứ lúc nào sau khi đã start)
+
+```
+omniroute status            # xem PID / port / còn chạy không
+omniroute stop              # dừng sạch (SIGTERM → SIGKILL sau 5s)
+omniroute restart            # khởi động lại
+tail -f ~/.omniroute/logs/omniroute.log   # xem log live
+```
